@@ -30,7 +30,8 @@ FCT_ORDERS(order_id, order_date, customer_id, restaurant_id, city, cuisine,
            delivery_fee, gst, customer_rating, delivery_time_min)
 DIM_RESTAURANT(restaurant_id, restaurant_name, city, cuisine, rating, cost_for_two)
 DIM_CUSTOMER(customer_id, customer_name, age, age_segment, gender, city)
-MART_DAILY_CITY_REVENUNE(order_date, city, orders, cancel_rate, gmv, aov)
+MART_DAILY_CITY_REVENUE(order_date, city, orders, delivered_orders, cancelled_rate, gmv,
+                        avg_order_value)
 MART_RESTAURANT_PERFORMANCE(restaurant_id, restaurant_name, city, cuisine,
                             orders, revenue, avg_customer_rating, cancel_rate)
 MART_DELIVERY_SLA(city, order_hour, delivered_orders, p50_delivery_min, late_rate)
@@ -107,7 +108,7 @@ with st.sidebar:
         st.markdown(f" - {q}")
 
 question = st.text_input("Enter your question here", 
-                         placeholder="e.g. Top 10 restaurants by revenune in Banglore")
+                         placeholder="e.g. Top 10 restaurants by revenue in Bangalore")
 
 
 if question:
