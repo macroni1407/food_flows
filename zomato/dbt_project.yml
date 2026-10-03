@@ -39,3 +39,8 @@ models:
 snapshots:
   zomato:
     +target_schema: snapshots
+
+# Load metadata (see macros/load_metadata.sql and snowflake/06_add_load_metadata.sql)
+vars:
+  initial_load_at: '2026-07-01'   # load time assumed for rows loaded before _loaded_at existed
+  lookback_days: 3                # incremental facts re-read this many days of recent loads
