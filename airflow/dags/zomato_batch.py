@@ -6,20 +6,47 @@ from airflow.providers.standard.operators.bash import BashOperator            # 
 DBT = "/opt/airflow/dbt_venv/bin/dbt"
 DBT_PROJECT = "/opt/airflow/dbt/zomato"
 
-COPY_RAW = [
-    "USE WAREHOUSE ZOMATO_WH",
-    "COPY INTO ZOMATO.RAW.restaurants FROM @ZOMATO.RAW.ZOMATO_RAW_STAGE/restaurants/  ON_ERROR='CONTINUE'",
-    "COPY INTO ZOMATO.RAW.users       FROM @ZOMATO.RAW.ZOMATO_RAW_STAGE/users/        ON_ERROR='CONTINUE'",
-    "COPY INTO ZOMATO.RAW.food        FROM @ZOMATO.RAW.ZOMATO_RAW_STAGE/food/         ON_ERROR='CONTINUE'",
-    "COPY INTO ZOMATO.RAW.menu        FROM @ZOMATO.RAW.ZOMATO_RAW_STAGE/menu/         ON_ERROR='CONTINUE'",
-    "COPY INTO ZOMATO.RAW.orders      FROM @ZOMATO.RAW.ZOMATO_RAW_STAGE/orders/",
-    "COPY INTO ZOMATO.RAW.order_items FROM @ZOMATO.RAW.ZOMATO_RAW_STAGE/order_items/",
-    "COPY INTO ZOMATO.RAW.reviews     FROM @ZOMATO.RAW.ZOMATO_RAW_STAGE/reviews/",
-]
+# CSV columns of each RAW table, in file order. COPY selects them by position ($1, $2, ...)
+# and appends two load-metadata columns: _source_file and _loaded_at.
+# daily=True: the generator writes a new raw/<table>/dt=YYYY-MM-DD/ folder every day, and a run
+# loads only the folder of its own logical date ({{ ds }}). Static tables load their whole folder
+# (files already loaded are skipped by Snowflake's load metadata).
+RAW_TABLES = {
+    "restaurants": {"daily": True, "on_error": "CONTINUE",
+                    "columns": "_idx id name city rating rating_count cost cuisine lic_no link address menu"},
+    "users": {"daily": False, "on_error": "CONTINUE",
+              "columns": "_idx user_id name email password age gender marital_status occupation "
+                         "monthly_income education family_size"},
+    "food": {"daily": False, "on_error": "CONTINUE", "columns": "_idx f_id item veg_or_non_veg"},
+    "menu": {"daily": False, "on_error": "CONTINUE", "columns": "_idx menu_id r_id f_id cuisine price"},
+    "orders": {"daily": True, "on_error": "ABORT_STATEMENT",
+               "columns": "order_id order_timestamp order_date user_id r_id restaurant_city cuisine "
+                          "items_count sales_qty subtotal discount delivery_fee gst sales_amount currency "
+                          "payment_method order_status customer_rating delivery_time_min"},
+    "order_items": {"daily": True, "on_error": "ABORT_STATEMENT",
+                    "columns": "order_item_id order_id r_id f_id price quantity line_amount"},
+    "reviews": {"daily": True, "on_error": "ABORT_STATEMENT",
+                "columns": "review_id order_id user_id restaurant_id rating comment review_date"},
+}
+
+
+def copy_statement(table, spec):
+    columns = spec["columns"].split()
+    positions = ", ".join(f"${i}" for i in range(1, len(columns) + 1))
+    path = f"{table}/dt={{{{ ds }}}}/" if spec["daily"] else f"{table}/"
+    return (
+        f"COPY INTO ZOMATO.RAW.{table} ({', '.join(columns)}, _source_file, _loaded_at) "
+        f"FROM (SELECT {positions}, METADATA$FILENAME, METADATA$START_SCAN_TIME "
+        f"FROM @ZOMATO.RAW.ZOMATO_RAW_STAGE/{path}) "
+        f"ON_ERROR='{spec['on_error']}'"
+    )
+
+
+COPY_RAW = ["USE WAREHOUSE ZOMATO_WH"] + [copy_statement(t, spec) for t, spec in RAW_TABLES.items()]
 
 with DAG(
     dag_id="zomato_batch",
-    start_date=datetime(2026, 10, 1),
+    start_date=datetime(2026, 9, 1),    # first day produced by generator/daily_generator.py
     schedule="@daily",
     catchup=False,
     tags=["zomato", "dbt", "snowflake"],
