@@ -44,14 +44,31 @@ def copy_statement(table, spec):
 
 COPY_RAW = ["USE WAREHOUSE ZOMATO_WH"] + [copy_statement(t, spec) for t, spec in RAW_TABLES.items()]
 
+# Every run works on the day given by its logical date ({{ ds }}). A run triggered without a
+# logical date has no ds, so fail fast with a clear message instead of a template error later.
+GENERATE_DATA = (
+    "{% if ds is not defined or not ds %}"
+    "echo 'This DAG needs a logical date: trigger it with one, or use a backfill.' >&2; exit 1"
+    "{% else %}"
+    "python /opt/airflow/generator/daily_generator.py --ds {{ ds }} "
+    "--data-dir /opt/airflow/data --out-dir /tmp/generator_output"
+    "{% endif %}"
+)
+
 with DAG(
     dag_id="zomato_batch",
     start_date=datetime(2026, 9, 1),    # first day produced by generator/daily_generator.py
     schedule="@daily",
     catchup=False,
+    max_active_runs=1,                  # days must run one after another (shared dbt tables)
     tags=["zomato", "dbt", "snowflake"],
     doc_md=__doc__,
 ) as dag:
+
+    generate_data = BashOperator(
+        task_id="generate_data",
+        bash_command=GENERATE_DATA,
+    )
 
     reload_raw = SQLExecuteQueryOperator(
         task_id="reload_raw", conn_id="snowflake_default", 
@@ -73,4 +90,4 @@ with DAG(
         bash_command=f"{DBT} build --select tag:ai --project-dir {DBT_PROJECT} --profiles-dir {DBT_PROJECT}"
     )
 
-    reload_raw >> dbt_build_core >> enrich_reviews >> dbt_build_ai
+    generate_data >> reload_raw >> dbt_build_core >> enrich_reviews >> dbt_build_ai
