@@ -6,4 +6,5 @@ pandas==2.3.3
 python-dotenv==1.2.4
 requests==2.34.2
 streamlit==1.64.0
-
+pyarrow
+snowflake-connector-python[pandas]

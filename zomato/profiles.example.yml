@@ -1,0 +1,18 @@
+# Template for profiles.yml (which is git-ignored).
+#   cp profiles.example.yml profiles.yml
+# Credentials come from environment variables, so no secret is ever written in this file.
+# Inside Airflow these variables are already set by docker-compose; locally, export them
+# (or load ai/.env) before running dbt.
+zomato:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE', 'DBT_ROLE') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'ZOMATO_WH') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE', 'ZOMATO') }}"
+      schema: STAGING
+      threads: 8

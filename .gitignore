@@ -3,3 +3,11 @@ data/
 logs/
 profiles.yml
 docs
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Generated / local-only files
+ai/review_embeddings.parquet
+.user.yml
