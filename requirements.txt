@@ -1,0 +1,9 @@
+dbt-core==1.12.5
+dbt-snowflake==1.12.1
+groq==1.7.0
+numpy==2.2.6
+pandas==2.3.3
+python-dotenv==1.2.4
+requests==2.34.2
+streamlit==1.64.0
+
