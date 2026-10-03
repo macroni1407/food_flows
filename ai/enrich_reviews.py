@@ -7,7 +7,7 @@ load_dotenv()
 
 MODEL = "openai/gpt-oss-120b"
 
-SAMPLE_N = 5
+SAMPLE_N = int(os.environ.get("SAMPLE_N", "5"))
 TOPICS = ["food quality", "delivery", "pricing", "service", "packaging", "other"]
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
@@ -34,16 +34,17 @@ def get_connection():
         user=os.environ.get("SNOWFLAKE_USER"),
         password=os.environ.get("SNOWFLAKE_PASSWORD"),
         account=os.environ.get("SNOWFLAKE_ACCOUNT"),
-        warehouse=os.environ.get("SNOWFLAKE_WAREHOUSE"),
-        database=os.environ.get("SNOWFLAKE_DATABASE"),
+        warehouse=os.environ.get("SNOWFLAKE_WAREHOUSE", "ZOMATO_WH"),
+        database=os.environ.get("SNOWFLAKE_DATABASE", "ZOMATO"),
         schema=os.environ.get("SNOWFLAKE_SCHEMA"),
+        role=os.environ.get("SNOWFLAKE_ROLE", "DBT_ROLE"),
     )
 
 def create_output_table(cursor):
     cursor.execute("CREATE SCHEMA IF NOT EXISTS ZOMATO.AI")
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS ZOMATO.AI.REVIEW_ENRICHED (
-            REVIEW_ID STRING,
+            REVIEW_ID NUMBER,
             SENTIMENT_LABEL STRING,
             SENTIMENT_SCORE FLOAT,
             TOPIC STRING,
@@ -55,9 +56,11 @@ def create_output_table(cursor):
 
 def get_reviews_to_enrich(cursor):
     cursor.execute(f"""
-        SELECT REVIEW_ID, COMMENT
-        FROM ZOMATO.RAW.REVIEWS
-        WHERE REVIEW_ID NOT IN (SELECT REVIEW_ID FROM ZOMATO.AI.REVIEW_ENRICHED)
+        SELECT r.REVIEW_ID, r.COMMENT
+        FROM ZOMATO.STAGING.STG_REVIEWS r
+        WHERE NOT EXISTS (
+            SELECT 1 FROM ZOMATO.AI.REVIEW_ENRICHED e WHERE e.REVIEW_ID = r.REVIEW_ID
+        )
         LIMIT {SAMPLE_N}
     """)
     return cursor.fetchall()
