@@ -15,7 +15,7 @@ FORBIDDEN_WORDS = ['drop', 'delete', 'truncate', 'alter', 'update', 'insert', 'c
 
 EXAMPLE_QUESTIONS = [
     "Top 10 cities by GMV",
-    "Which cuisin has the most orders?",
+    "Which cuisine has the most orders?",
     "Average delivery time by city, worst first",
     "Cancel rate by payment method"
 ]
@@ -25,18 +25,37 @@ client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 SCHEMA = """
 Tables available (Snowflake). Use bare table names, no database or schema prefix.
  
-FCT_ORDERS(order_id, order_date, customer_id, restaurant_id, city, cuisine,
-           payment_method, order_status, is_delivered, sales_amount, discount,
-           delivery_fee, gst, customer_rating, delivery_time_min)
-DIM_RESTAURANT(restaurant_id, restaurant_name, city, cuisine, rating, cost_for_two)
-DIM_CUSTOMER(customer_id, customer_name, age, age_segment, gender, city)
+FCT_ORDERS(order_id, order_timestamp, order_date, customer_id, restaurant_id, city, cuisine,
+           payment_method, order_status, is_delivered, items_count, sales_qty, subtotal,
+           discount, delivery_fee, gst, sales_amount, customer_rating, delivery_time_min)
+FCT_ORDER_ITEMS(order_item_id, order_id, restaurant_id, f_id, order_ts, order_date, city,
+                price, quantity, line_amount)
+DIM_RESTAURANTS(restaurant_id, restaurant_name, city, cuisine, rating, rating_count, cost_for_two)
+DIM_CUSTOMER(customer_id, customer_name, age, age_segment, gender, marital_status,
+             occupation, income_band, education, family_size)
+DIM_FOOD(f_id, food_name, veg_or_non_veg)
+DIM_DATE(date_day, year, month, month_name, day_name, is_weekend)
 MART_DAILY_CITY_REVENUE(order_date, city, orders, delivered_orders, cancelled_rate, gmv,
                         avg_order_value)
 MART_RESTAURANT_PERFORMANCE(restaurant_id, restaurant_name, city, cuisine,
-                            orders, revenue, avg_customer_rating, cancel_rate)
-MART_DELIVERY_SLA(city, order_hour, delivered_orders, p50_delivery_min, late_rate)
+                            orders, revenue, avg_customer_rating, avg_delivery_min)
+MART_DELIVERY_SLA(city, order_hour, delivered_orders, p50, p90)
+MART_REVIEW_INSIGHTS(city, topic, sentiment_label, reviews, avg_sentiment_score,
+                     avg_star_rating, flagged_issues)
 
-Note: gmv means delivered revenue. Prefer the MART_ tables when they fit the question.
+Relationships:
+- FCT_ORDERS.restaurant_id = DIM_RESTAURANTS.restaurant_id
+- FCT_ORDERS.customer_id = DIM_CUSTOMER.customer_id
+- FCT_ORDERS.order_date = DIM_DATE.date_day
+- FCT_ORDER_ITEMS.order_id = FCT_ORDERS.order_id
+- FCT_ORDER_ITEMS.f_id = DIM_FOOD.f_id
+
+Notes:
+- gmv and revenue mean delivered revenue (orders with is_delivered = TRUE).
+- order_status is one of 'Delivered', 'Cancelled', 'Refunded'.
+- MART_DELIVERY_SLA.p50 and p90 are delivery times in minutes (delivered orders only).
+- MART_REVIEW_INSIGHTS.sentiment_label is 'positive', 'negative' or 'neutral'.
+- Prefer the MART_ tables when they fit the question.
 """
 
 SYSTEM_PROMPT = f"""
