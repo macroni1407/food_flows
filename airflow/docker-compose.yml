@@ -28,6 +28,9 @@ x-airflow-common: &airflow-common
     - ./logs:/opt/airflow/logs
     - ../zomato:/opt/airflow/dbt/zomato      # your dbt project
     - ../ai:/opt/airflow/ai                       # the enrich_reviews.py script
+    # the daily data generator; it reads its AWS key and bucket from generator/.env
+    - ../generator:/opt/airflow/generator
+    - ../data:/opt/airflow/data:ro                # reference CSVs used by the generator
   depends_on:
     postgres:
       condition: service_healthy
