@@ -1,0 +1,13 @@
+zomato:
+  outputs:
+    dev:
+      account: HGIXMLB-HP57670
+      database: ZOMATO
+      password: Nguyen3564278@
+      role: DBT_ROLE
+      schema: STAGING
+      threads: 8
+      type: snowflake
+      user: NGUYEN22002
+      warehouse: ZOMATO_WH
+  target: dev
