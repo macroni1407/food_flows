@@ -33,5 +33,9 @@ models:
   zomato:
     staging: {+materialized: view, +schema: staging}
     marts: {+materialized: table, +schema: marts}
-  snapshots:
-    zomato: {+materialized: snapshot, +schema: snapshots}
+
+# Snapshots are configured at the top level, not under models:.
+# target_schema works on both dbt 1.8 (Airflow image) and dbt 1.9+ (local).
+snapshots:
+  zomato:
+    +target_schema: snapshots
