@@ -5,6 +5,7 @@ r.user_id::number as customer_id,
 r.restaurant_id::number as restaurant_id,
 r.rating::number as rating,
 r.comment::string as comment,
+sha2(r.comment::string, 256) as comment_hash,   -- key of AI.REVIEW_EMBEDDINGS (one vector per distinct text)
 r.review_date::DATE as review_date,
 res.city as city,
 r._source_file,
