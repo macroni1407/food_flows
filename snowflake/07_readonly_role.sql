@@ -24,6 +24,14 @@ GRANT SELECT ON ALL VIEWS  IN SCHEMA ZOMATO.MARTS TO ROLE ANALYST_RO_ROLE;
 GRANT SELECT ON FUTURE TABLES IN SCHEMA ZOMATO.MARTS TO ROLE ANALYST_RO_ROLE;
 GRANT SELECT ON FUTURE VIEWS  IN SCHEMA ZOMATO.MARTS TO ROLE ANALYST_RO_ROLE;
 
+-- Review search (ai/agent/reviews.py) also reads the embeddings in schema AI.
+-- Tables there are created by the pipeline role (embeddings, enrichment, agent logs); none is sensitive.
+-- As for MARTS, the schema-level future grant overrides the database-level one for AI; fine because
+-- the pipeline role (DBT_ROLE) creates, and so owns, the tables in AI.
+GRANT USAGE  ON SCHEMA ZOMATO.AI TO ROLE ANALYST_RO_ROLE;
+GRANT SELECT ON ALL TABLES    IN SCHEMA ZOMATO.AI TO ROLE ANALYST_RO_ROLE;
+GRANT SELECT ON FUTURE TABLES IN SCHEMA ZOMATO.AI TO ROLE ANALYST_RO_ROLE;
+
 -- Let your login use the role.
 SET my_user = CURRENT_USER();
 GRANT ROLE ANALYST_RO_ROLE TO USER IDENTIFIER($my_user);
@@ -35,6 +43,7 @@ USE WAREHOUSE ZOMATO_WH;
 SELECT COUNT(*) FROM ZOMATO.MARTS.FCT_ORDERS;          -- works
 -- Each of these must FAIL (run them one by one to see the errors):
 -- SELECT COUNT(*) FROM ZOMATO.RAW.ORDERS;             -- no access to RAW
+-- INSERT INTO ZOMATO.AI.AGENT_LOGS (log_id) SELECT 'x'; -- read-only in AI too
 -- DELETE FROM ZOMATO.MARTS.FCT_ORDERS WHERE 1 = 0;    -- insufficient privileges
 -- DROP TABLE ZOMATO.MARTS.DIM_DATE;                   -- insufficient privileges
 USE ROLE ACCOUNTADMIN;
