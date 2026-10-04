@@ -87,9 +87,22 @@ with DAG(
         bash_command="python /opt/airflow/ai/enrich_reviews.py",
     )
 
+    # One embedding per distinct review text (AI.REVIEW_EMBEDDINGS), for review search.
+    embed_reviews = BashOperator(
+        task_id="embed_reviews",
+        bash_command="python /opt/airflow/ai/embed_reviews.py",
+    )
+
+    # tag:ai models: mart_review_insights and mart_review_search (it carries the enrichment labels)
     dbt_build_ai = BashOperator(
         task_id = "dbt_build_ai",
         bash_command=f"{DBT} build --select tag:ai --project-dir {DBT_PROJECT} --profiles-dir {DBT_PROJECT}"
     )
 
-    generate_data >> reload_raw >> dbt_build_core >> enrich_reviews >> dbt_build_ai
+    # catalog.json (column types) for the text-to-SQL schema prompt (ai/agent/schema.py)
+    dbt_docs = BashOperator(
+        task_id="dbt_docs",
+        bash_command=f"{DBT} docs generate --project-dir {DBT_PROJECT} --profiles-dir {DBT_PROJECT}",
+    )
+
+    generate_data >> reload_raw >> dbt_build_core >> [enrich_reviews, embed_reviews] >> dbt_build_ai >> dbt_docs
