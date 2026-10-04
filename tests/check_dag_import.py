@@ -10,9 +10,18 @@ bag = DagBag(dag_folder="/repo/airflow/dags", include_examples=False)
 assert not bag.import_errors, f"DAG import errors: {bag.import_errors}"
 
 dag = bag.dags["zomato_batch"]
-expected = ["generate_data", "reload_raw", "dbt_build_core", "enrich_reviews", "dbt_build_ai"]
-order = [t.task_id for t in dag.topological_sort()]
-assert order == expected, f"unexpected task order: {order}"
+expected_upstream = {
+    "generate_data": set(),
+    "reload_raw": {"generate_data"},
+    "dbt_build_core": {"reload_raw"},
+    "enrich_reviews": {"dbt_build_core"},
+    "embed_reviews": {"dbt_build_core"},
+    "dbt_build_ai": {"enrich_reviews", "embed_reviews"},
+    "dbt_docs": {"dbt_build_ai"},
+}
+actual = {t.task_id: set(t.upstream_task_ids) for t in dag.tasks}
+assert actual == expected_upstream, f"unexpected dependencies: {actual}"
 assert dag.max_active_runs == 1, "days must run one after another"
 
+order = [t.task_id for t in dag.topological_sort()]
 print(f"zomato_batch imported: {' -> '.join(order)}")
