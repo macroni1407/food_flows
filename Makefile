@@ -11,7 +11,7 @@ GITLEAKS_IMAGE := zricethezav/gitleaks:v8.30.1
 
 .DEFAULT_GOAL := help
 .PHONY: help install lint test dbt-parse dag-check secrets ci build up down logs \
-        dbt-build generate trigger backfill text2sql rag
+        dbt-build generate trigger backfill app embed text2sql rag
 
 help:  ## List available commands
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  \033[36m%-11s\033[0m %s\n", $$1, $$2}'
@@ -77,6 +77,12 @@ dbt-build:  ## Build and test all dbt models except the AI mart (uses zomato/pro
 generate:  ## Generate one day locally without uploading: make generate DS=2026-09-06
 	@test -n "$(DS)" || { echo "usage: make generate DS=YYYY-MM-DD"; exit 1; }
 	$(PYTHON) generator/daily_generator.py --ds $(DS) --no-upload
+
+app:  ## Start the AI app: Text-to-SQL, Chat with reviews, Agent (Streamlit)
+	cd ai && streamlit run app.py
+
+embed:  ## Embed review texts that have no embedding yet (also a DAG task)
+	$(PYTHON) ai/embed_reviews.py
 
 text2sql:  ## Start the text-to-SQL app (Streamlit)
 	cd ai && streamlit run text_to_sql.py
