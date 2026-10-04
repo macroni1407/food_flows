@@ -9,3 +9,8 @@ streamlit==1.64.0
 pyarrow
 snowflake-connector-python[pandas]
 boto3
+# Agent (ai/agent): LangGraph loop, Groq through its OpenAI-compatible API, SQL guard
+langgraph==1.2.12
+langchain-core==1.6.6
+langchain-openai==1.6.7
+sqlglot==30.21.0
