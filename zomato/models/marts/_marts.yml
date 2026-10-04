@@ -1,26 +1,364 @@
 version: 2
+
+# Descriptions here are not only documentation: ai/agent/schema.py reads them from manifest.json
+# and gives them to the text-to-SQL model. Keep them accurate when a model changes.
+
 models:
   - name: fct_orders
+    description: "One row per order (latest status). Grain: order_id."
     columns:
       - name: order_id
+        description: "Order identifier."
         tests: [unique, not_null]
+      - name: order_timestamp
+        description: "When the order was placed."
+      - name: order_date
+        description: "Date the order was placed. Join to dim_date.date_day."
       - name: customer_id
+        description: "Customer who placed the order. Join to dim_customer.customer_id."
         tests:
           - relationships: { to: ref('dim_customer'), field: customer_id }   # referential integrity
+      - name: restaurant_id
+        description: "Restaurant of the order. Join to dim_restaurants.restaurant_id."
+      - name: city
+        description: "City of the restaurant."
+      - name: cuisine
+        description: "Cuisine(s) of the restaurant, comma separated."
+      - name: payment_method
+        description: "How the order was paid."
       - name: order_status
+        description: "Latest status of the order."
         tests:
           - accepted_values: { values: ['Delivered','Cancelled','Refunded'] }
+      - name: is_delivered
+        description: "TRUE when order_status = 'Delivered'. GMV and revenue count delivered orders only."
+      - name: items_count
+        description: "Number of distinct dishes in the order."
+      - name: sales_qty
+        description: "Total quantity of dishes."
+      - name: subtotal
+        description: "Sum of dish prices before discount, fee and tax (INR)."
+      - name: discount
+        description: "Discount amount (INR)."
+      - name: delivery_fee
+        description: "Delivery fee (INR)."
+      - name: gst
+        description: "Tax (INR)."
+      - name: sales_amount
+        description: "Amount paid: subtotal - discount + delivery_fee + gst (INR)."
+      - name: customer_rating
+        description: "Rating the customer gave the order, 1-5. NULL when not rated or not delivered."
+      - name: delivery_time_min
+        description: "Delivery time in minutes. Only for delivered orders."
+
+  - name: fct_order_items
+    description: "One row per dish in an order. Grain: order_item_id."
+    columns:
+      - name: order_item_id
+        description: "Order item identifier."
+      - name: order_id
+        description: "Order the item belongs to. Join to fct_orders.order_id."
+      - name: restaurant_id
+        description: "Restaurant of the order."
+      - name: f_id
+        description: "Dish identifier. Join to dim_food.f_id."
+      - name: order_ts
+        description: "When the order was placed."
+      - name: order_date
+        description: "Date the order was placed."
+      - name: city
+        description: "City of the restaurant."
+      - name: price
+        description: "Unit price of the dish (INR)."
+      - name: quantity
+        description: "Quantity ordered."
+      - name: line_amount
+        description: "price * quantity (INR)."
+
+  - name: dim_restaurants
+    description: "Restaurants with their CURRENT attributes. Grain: restaurant_id. For values at a past date use dim_restaurants_history."
+    columns:
+      - name: restaurant_id
+        description: "Restaurant identifier."
+      - name: restaurant_name
+        description: "Restaurant name."
+      - name: city
+        description: "City."
+      - name: cuisine
+        description: "Cuisine(s), comma separated."
+      - name: rating
+        description: "Current average rating, 1-5. NULL when too few ratings."
+      - name: rating_count
+        description: "Number of ratings (approximate)."
+      - name: cost_for_two
+        description: "Current price for two people (INR)."
+
   - name: dim_restaurants_history
+    description: "Restaurant attributes over time (SCD2, event time). A version is valid from valid_from (inclusive) to valid_to (exclusive); valid_to is NULL for the current version."
     columns:
       - name: restaurant_version_key
+        description: "restaurant_id and valid_from date."
         tests: [unique, not_null]
+      - name: restaurant_id
+        description: "Restaurant identifier."
+      - name: restaurant_name
+        description: "Restaurant name."
+      - name: city
+        description: "City."
+      - name: cuisine
+        description: "Cuisine(s), comma separated."
+      - name: rating
+        description: "Rating during this version."
+      - name: rating_count
+        description: "Number of ratings during this version."
+      - name: cost_for_two
+        description: "Price for two during this version (INR)."
       - name: valid_from
+        description: "Start of the version (1900-01-01 for the original data)."
         tests: [not_null]
-  - name: fct_orders_point_in_time
+      - name: valid_to
+        description: "End of the version, exclusive. NULL for the current version."
+      - name: is_current
+        description: "TRUE for the current version."
+
+  - name: dim_customer
+    description: "Customers. Grain: customer_id."
     columns:
+      - name: customer_id
+        description: "Customer identifier."
+      - name: customer_name
+        description: "Customer name."
+      - name: age
+        description: "Age in years."
+      - name: age_segment
+        description: "Age group."
+      - name: gender
+        description: "Gender."
+      - name: marital_status
+        description: "Marital status."
+      - name: occupation
+        description: "Occupation."
+      - name: income_band
+        description: "Monthly income band."
+      - name: education
+        description: "Education level."
+      - name: family_size
+        description: "Number of people in the family."
+
+  - name: dim_food
+    description: "Dishes. Grain: f_id."
+    columns:
+      - name: f_id
+        description: "Dish identifier."
+      - name: food_name
+        description: "Dish name."
+      - name: veg_or_non_veg
+        description: "Veg or Non-veg."
+
+  - name: dim_date
+    description: "Calendar from 2024-01-01 to 2026-12-31. Grain: date_day."
+    columns:
+      - name: date_day
+        description: "Date."
+      - name: year
+        description: "Year."
+      - name: month
+        description: "Month number 1-12."
+      - name: month_name
+        description: "Short month name."
+      - name: day_name
+        description: "Short day name."
+      - name: is_weekend
+        description: "TRUE on Saturday and Sunday."
+
+  - name: fct_orders_point_in_time
+    description: "Each order with the restaurant price and rating in effect WHEN it was placed, next to the current values. Use it for questions about prices or ratings at order time."
+    columns:
+      - name: order_id
+        description: "Order identifier."
+      - name: order_timestamp
+        description: "When the order was placed."
+      - name: order_date
+        description: "Date the order was placed."
+      - name: restaurant_id
+        description: "Restaurant identifier."
+      - name: city
+        description: "City of the restaurant."
+      - name: order_status
+        description: "Latest status of the order."
+      - name: is_delivered
+        description: "TRUE when delivered."
+      - name: sales_amount
+        description: "Amount paid (INR)."
       - name: restaurant_version_key
+        description: "Restaurant version matched at order time."
         tests:
           - not_null:
               config:
                 severity: warn   # an order whose restaurant is missing from the restaurant data
+      - name: cost_for_two_at_order
+        description: "Restaurant price for two when the order was placed (INR)."
+      - name: rating_at_order
+        description: "Restaurant rating when the order was placed."
+      - name: cost_for_two_current
+        description: "Restaurant price for two today (INR)."
+      - name: rating_current
+        description: "Restaurant rating today."
 
+  - name: mart_daily_city_revenue
+    description: "Orders and revenue per day and city. Grain: order_date, city."
+    columns:
+      - name: order_date
+        description: "Date."
+      - name: city
+        description: "City."
+      - name: orders
+        description: "All orders, any status."
+      - name: delivered_orders
+        description: "Delivered orders."
+      - name: cancelled_rate
+        description: "Share of orders cancelled, 0-1."
+      - name: gmv
+        description: "Gross merchandise value: sales_amount of delivered orders (INR)."
+      - name: avg_order_value
+        description: "GMV / delivered orders (INR)."
+
+  - name: mart_delivery_sla
+    description: "Delivery time percentiles of delivered orders per city and hour of day (all dates). Grain: city, order_hour."
+    columns:
+      - name: city
+        description: "City."
+      - name: order_hour
+        description: "Hour of day the order was placed, 0-23."
+      - name: delivered_orders
+        description: "Delivered orders."
+      - name: p50
+        description: "Median delivery time in minutes."
+      - name: p90
+        description: "90th percentile delivery time in minutes."
+
+  - name: mart_restaurant_performance
+    description: "Orders, revenue, rating and delivery time per restaurant (all dates). Grain: restaurant_id."
+    columns:
+      - name: restaurant_id
+        description: "Restaurant identifier."
+      - name: restaurant_name
+        description: "Restaurant name."
+      - name: city
+        description: "City."
+      - name: cuisine
+        description: "Cuisine(s)."
+      - name: orders
+        description: "All orders."
+      - name: revenue
+        description: "sales_amount of delivered orders (INR)."
+      - name: avg_customer_rating
+        description: "Average customer rating of orders, 1-5."
+      - name: avg_delivery_min
+        description: "Average delivery time in minutes."
+
+  - name: mart_restaurant_price_changes
+    description: "One row per restaurant price change, with orders and delivered revenue in the 7 days before and after."
+    columns:
+      - name: restaurant_id
+        description: "Restaurant identifier."
+      - name: restaurant_name
+        description: "Restaurant name."
+      - name: city
+        description: "City."
+      - name: changed_on
+        description: "Date of the price change."
+      - name: old_cost_for_two
+        description: "Price for two before (INR)."
+      - name: new_cost_for_two
+        description: "Price for two after (INR)."
+      - name: price_change_pct
+        description: "Relative price change, e.g. 0.15 = +15%."
+      - name: orders_7d_before
+        description: "Orders in the 7 days before the change."
+      - name: orders_7d_after
+        description: "Orders in the 7 days after the change."
+      - name: revenue_7d_before
+        description: "Delivered revenue in the 7 days before (INR)."
+      - name: revenue_7d_after
+        description: "Delivered revenue in the 7 days after (INR)."
+      - name: days_observed_after
+        description: "Days of data available after the change (max 7)."
+
+  - name: mart_review_insights
+    description: "Counts of LLM-labelled reviews per city, topic and sentiment. Only covers reviews that have been enriched (a sample), not all reviews. Grain: city, topic, sentiment_label."
+    columns:
+      - name: city
+        description: "City."
+      - name: topic
+        description: "Main topic of the review."
+      - name: sentiment_label
+        description: "Sentiment of the review."
+      - name: reviews
+        description: "Number of enriched reviews."
+      - name: avg_sentiment_score
+        description: "Average sentiment score, -1 to 1."
+      - name: avg_star_rating
+        description: "Average star rating, 1-5."
+      - name: flagged_issues
+        description: "Reviews with a key issue."
+
+  - name: mart_daily_review_stats
+    description: "ALL reviews per day and city, based on star ratings. Use it to find days or cities with many unhappy customers. Grain: review_date, city."
+    columns:
+      - name: review_date
+        description: "Date the review was written."
+      - name: city
+        description: "City of the reviewed restaurant."
+      - name: reviews
+        description: "Number of reviews."
+      - name: negative_reviews
+        description: "Reviews with 1-2 stars."
+      - name: negative_share
+        description: "negative_reviews / reviews, 0-1."
+      - name: avg_rating
+        description: "Average star rating, 1-5."
+
+  - name: mart_review_search
+    description: "One row per review with restaurant context (and order context when consistent). Backs review search; for counts by text prefer mart_daily_review_stats or mart_review_insights."
+    columns:
+      - name: review_id
+        description: "Review identifier."
+        tests: [unique, not_null]
+      - name: review_date
+        description: "Date the review was written."
+      - name: city
+        description: "City of the reviewed restaurant."
+      - name: rating
+        description: "Star rating, 1-5."
+      - name: comment
+        description: "Review text."
+      - name: comment_hash
+        description: "SHA-256 of the review text; key of AI.REVIEW_EMBEDDINGS."
+        tests: [not_null]
+      - name: restaurant_id
+        description: "Reviewed restaurant."
+      - name: restaurant_name
+        description: "Restaurant name on the review date."
+      - name: cuisine
+        description: "Restaurant cuisine(s) on the review date."
+      - name: restaurant_rating_at_review
+        description: "Restaurant rating on the review date."
+      - name: cost_for_two_at_review
+        description: "Restaurant price for two on the review date (INR)."
+      - name: order_id
+        description: "Reviewed order. NULL when the order does not belong to the reviewed restaurant (original data)."
+      - name: order_date
+        description: "Order date (when order_id is set)."
+      - name: sales_amount
+        description: "Order amount (INR, when order_id is set)."
+      - name: delivery_time_min
+        description: "Order delivery time in minutes (when order_id is set)."
+      - name: payment_method
+        description: "Order payment method (when order_id is set)."
+      - name: sentiment_label
+        description: "LLM sentiment label. NULL for reviews not enriched yet."
+      - name: topic
+        description: "LLM topic label. NULL for reviews not enriched yet."
+      - name: key_issue
+        description: "LLM short issue phrase. NULL when none or not enriched."
