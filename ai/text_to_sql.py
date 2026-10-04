@@ -1,154 +1,45 @@
-import json
-import os
-
+"""📊 Text-to-SQL page: a thin UI over agent.warehouse.query_warehouse (also used by the Agent)."""
 import pandas as pd
-import snowflake.connector
 import streamlit as st
-from dotenv import load_dotenv
-from groq import Groq
 
-load_dotenv()
-
-MODEL = "openai/gpt-oss-120b"
-
-FORBIDDEN_WORDS = ['drop', 'delete', 'truncate', 'alter', 'update', 'insert', 'create', 'replace', 'grant', 'revoke']
+from agent import agent_logs, settings, warehouse
 
 EXAMPLE_QUESTIONS = [
     "Top 10 cities by GMV",
     "Which cuisine has the most orders?",
     "Average delivery time by city, worst first",
-    "Cancel rate by payment method"
+    "Cancel rate by payment method",
+    "Share of 1-2 star reviews by day in Delhi in September 2026",
 ]
 
-client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
-
-SCHEMA = """
-Tables available (Snowflake). Use bare table names, no database or schema prefix.
- 
-FCT_ORDERS(order_id, order_timestamp, order_date, customer_id, restaurant_id, city, cuisine,
-           payment_method, order_status, is_delivered, items_count, sales_qty, subtotal,
-           discount, delivery_fee, gst, sales_amount, customer_rating, delivery_time_min)
-FCT_ORDER_ITEMS(order_item_id, order_id, restaurant_id, f_id, order_ts, order_date, city,
-                price, quantity, line_amount)
-DIM_RESTAURANTS(restaurant_id, restaurant_name, city, cuisine, rating, rating_count, cost_for_two)
-DIM_CUSTOMER(customer_id, customer_name, age, age_segment, gender, marital_status,
-             occupation, income_band, education, family_size)
-DIM_FOOD(f_id, food_name, veg_or_non_veg)
-DIM_DATE(date_day, year, month, month_name, day_name, is_weekend)
-MART_DAILY_CITY_REVENUE(order_date, city, orders, delivered_orders, cancelled_rate, gmv,
-                        avg_order_value)
-MART_RESTAURANT_PERFORMANCE(restaurant_id, restaurant_name, city, cuisine,
-                            orders, revenue, avg_customer_rating, avg_delivery_min)
-MART_DELIVERY_SLA(city, order_hour, delivered_orders, p50, p90)
-MART_REVIEW_INSIGHTS(city, topic, sentiment_label, reviews, avg_sentiment_score,
-                     avg_star_rating, flagged_issues)
-
-Relationships:
-- FCT_ORDERS.restaurant_id = DIM_RESTAURANTS.restaurant_id
-- FCT_ORDERS.customer_id = DIM_CUSTOMER.customer_id
-- FCT_ORDERS.order_date = DIM_DATE.date_day
-- FCT_ORDER_ITEMS.order_id = FCT_ORDERS.order_id
-- FCT_ORDER_ITEMS.f_id = DIM_FOOD.f_id
-
-Notes:
-- gmv and revenue mean delivered revenue (orders with is_delivered = TRUE).
-- order_status is one of 'Delivered', 'Cancelled', 'Refunded'.
-- MART_DELIVERY_SLA.p50 and p90 are delivery times in minutes (delivered orders only).
-- MART_REVIEW_INSIGHTS.sentiment_label is 'positive', 'negative' or 'neutral'.
-- Prefer the MART_ tables when they fit the question.
-"""
-
-SYSTEM_PROMPT = f"""
-You are a Snowflake SQL expert. Write ONE SELECT query that answers the question.
- 
-Rules:
-- SELECT queries only, never modify data.
-- Use bare table names (FCT_ORDERS, not ZOMATO.MARTS.FCT_ORDERS).
-- Add a LIMIT of 100 or less, unless the question asks for a single total.
-- Reply as JSON in this exact format: {{"sql": "your query here"}}
- 
-{SCHEMA}
-"""
-
-
-@st.cache_resource
-def get_connection():
-    # LLM-written SQL runs under a read-only role (snowflake/07_readonly_role.sql): Snowflake
-    # rejects anything but SELECT on MARTS, whatever is_safe() lets through. A statement
-    # timeout stops a runaway query from burning warehouse credits.
-    return snowflake.connector.connect(
-        account=os.getenv("SNOWFLAKE_ACCOUNT"),
-        user=os.getenv("SNOWFLAKE_USER"),
-        password=os.getenv("SNOWFLAKE_PASSWORD"),
-        warehouse=os.getenv("SNOWFLAKE_WAREHOUSE", "ZOMATO_WH"),
-        database=os.getenv("SNOWFLAKE_DATABASE", "ZOMATO"),
-        schema="MARTS",
-        role=os.getenv("SNOWFLAKE_TEXT2SQL_ROLE", "ANALYST_RO_ROLE"),
-        session_parameters={"STATEMENT_TIMEOUT_IN_SECONDS": 60},
-    )
-
-def generate_sql(question):
-    response = client.chat.completions.create(
-        model=MODEL,
-        temperature=0,
-        response_format={"type": "json_object"},
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": question}
-        ]
-    )
-    answer = response.choices[0].message.content
-    sql = json.loads(answer)["sql"]
-
-    sql = sql.replace("ZOMATO.MARTS.", "").replace("ZOMATO.", "")
-    return sql.strip().rstrip(";")
-
-def is_safe(sql):
-    lowered = sql.lower()
-
-    if not lowered.startswith("select") and not lowered.startswith("with"):
-        return False
-
-    for word in FORBIDDEN_WORDS:
-        if word in lowered:
-            return False
-
-    return True
-
-def run_query(sql):
-    conn = get_connection()
-    cursor = conn.cursor()
-    return cursor.execute(sql).fetch_pandas_all()
-
-
-
-st.title("Chat with your Zomato Data")
-st.caption(f"Ask in English, {MODEL} writes the SQL, Snowflake runs it")
+st.title("📊 Text-to-SQL")
+st.caption(f"{settings.SQL_MODEL} writes Snowflake SQL from the dbt schema; a guard checks it and it runs "
+           f"under the read-only role {settings.READ_ROLE}.")
 
 with st.sidebar:
-    st.header("Example Questions")
+    st.header("Example questions")
     for q in EXAMPLE_QUESTIONS:
-        st.markdown(f" - {q}")
+        st.markdown(f"- {q}")
+    st.info("Need numbers **and** what customers said? Try the **Agent** page.")
 
-question = st.text_input("Enter your question here", 
+question = st.text_input("Ask a question about the data",
                          placeholder="e.g. Top 10 restaurants by revenue in Bangalore")
 
-
 if question:
-    sql = generate_sql(question)
-    st.code(sql, language="sql")
+    with st.spinner("Writing and running SQL..."):
+        result = warehouse.query_warehouse(question)
+    agent_logs.write("text_to_sql", question, tool_calls=1, error=result["error"],
+                     trace=[{"tool": "query_warehouse", "result": warehouse.for_llm(result)}])
 
-    if not is_safe(sql):
-        st.error("The generated SQL is not safe to run. Please modify your question.")
-
+    if result["sql"]:
+        st.code(result["sql"], language="sql")
+    if result["error"]:
+        st.error(result["error"])
     else:
-        try:
-            df = run_query(sql)
-            st.success(f"{len(df)} rows returned")
-            st.dataframe(df, hide_index=True)
-
-            if len(df.columns) == 2 and pd.api.types.is_numeric_dtype(df.iloc[:, 1]):
-                st.bar_chart(df, x=df.columns[0], y=df.columns[1])
-
-        except Exception as e:
-            st.error(f"Error running query: {e}")
+        df = pd.DataFrame(result["rows"], columns=result["columns"])
+        st.success(f"{result['row_count']} rows returned")
+        for note in result["notes"]:
+            st.info(note)
+        st.dataframe(df, hide_index=True)
+        if len(df.columns) == 2 and pd.api.types.is_numeric_dtype(df.iloc[:, 1]):
+            st.bar_chart(df, x=df.columns[0], y=df.columns[1])
