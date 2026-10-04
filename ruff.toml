@@ -1,0 +1,9 @@
+# Python lint settings (used by CI and `make lint`).
+target-version = "py312"
+line-length = 120
+extend-exclude = ["data", "logs", "airflow/logs", "zomato/target", "zomato/logs", "generator/output"]
+
+[lint]
+# Real errors only: syntax/runtime errors (E4, E7, E9), pyflakes (F: unused imports and
+# variables, undefined names) and import sorting (I).
+select = ["E4", "E7", "E9", "F", "I"]

@@ -1,11 +1,12 @@
 import os
-import requests
+
 import numpy as np
 import pandas as pd
-import streamlit as st
+import requests
 import snowflake.connector
-from groq import Groq
+import streamlit as st
 from dotenv import load_dotenv
+from groq import Groq
 
 load_dotenv()
 

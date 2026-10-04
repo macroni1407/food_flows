@@ -1,0 +1,66 @@
+# Code checks on every push and pull request. Nothing here connects to Snowflake or AWS:
+# no credentials in GitHub, no warehouse credits spent.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  python:
+    name: Lint and test Python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff pytest python-dotenv
+      - name: Lint (ruff)
+        run: ruff check .
+      - name: Test the data generator (pytest)
+        run: pytest -q tests/
+
+  dbt-parse:
+    name: dbt parse (dbt ${{ matrix.dbt }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # 1.8 runs inside the Airflow image, 1.12 runs locally: the project must parse on both.
+        dbt: ["1.8", "1.12"]
+    env:
+      # dbt parse renders profiles.yml but never connects, so dummy credentials are enough.
+      SNOWFLAKE_ACCOUNT: ci-dummy
+      SNOWFLAKE_USER: ci-dummy
+      SNOWFLAKE_PASSWORD: ci-dummy
+      DBT_SEND_ANONYMOUS_USAGE_STATS: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install "dbt-core==${{ matrix.dbt }}.*" "dbt-snowflake==${{ matrix.dbt }}.*"
+      - name: Parse models, tests, macros and YAML
+        working-directory: zomato
+        run: |
+          cp profiles.example.yml profiles.yml
+          dbt parse --profiles-dir . --no-partial-parse
+
+  dag-import:
+    name: Import the Airflow DAG
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Import with the same Airflow version as airflow/Dockerfile
+        run: docker run --rm -v "$PWD:/repo:ro" apache/airflow:3.0.3 python /repo/tests/check_dag_import.py
+
+  secrets:
+    name: Scan for secrets (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # scan the whole history, not only the last commit
+      - name: gitleaks
+        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 git /repo --redact --no-banner

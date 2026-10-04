@@ -1,0 +1,4 @@
+# Findings reviewed and accepted. One fingerprint per line: <commit>:<file>:<rule>:<line>.
+# An AWS access key ID (without its secret) was committed in generator/.env.example and removed
+# in the next commit; the key is to be rotated, so the historical finding is ignored here.
+e8c870d73913fc55178b1f646fffa913f4dc4852:generator/.env.example:aws-access-token:3

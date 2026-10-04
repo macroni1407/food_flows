@@ -1,0 +1,91 @@
+,menu_id,r_id,f_id,cuisine,price
+0,mn0,100000,fd0,North Indian,120.0
+1,mn0,100000,fd1,North Indian,250.0
+2,mn0,100000,fd2,North Indian,320.0
+3,mn0,100000,fd3,North Indian,180.0
+4,mn0,100000,fd4,North Indian,250.0
+5,mn0,100000,fd5,North Indian,180.0
+6,mn1,100001,fd10,Chinese,250.0
+7,mn1,100001,fd11,Chinese,120.0
+8,mn1,100001,fd12,Chinese,120.0
+9,mn1,100001,fd13,Chinese,80.0
+10,mn1,100001,fd14,Chinese,120.0
+11,mn1,100001,fd15,Chinese,120.0
+12,mn2,100002,fd20,South Indian,120.0
+13,mn2,100002,fd21,South Indian,120.0
+14,mn2,100002,fd22,South Indian,80.0
+15,mn2,100002,fd23,South Indian,250.0
+16,mn2,100002,fd24,South Indian,320.0
+17,mn2,100002,fd25,South Indian,120.0
+18,mn3,100003,fd30,Pizzas,180.0
+19,mn3,100003,fd31,Pizzas,180.0
+20,mn3,100003,fd32,Pizzas,80.0
+21,mn3,100003,fd33,Pizzas,120.0
+22,mn3,100003,fd34,Pizzas,250.0
+23,mn3,100003,fd35,Pizzas,320.0
+24,mn4,100004,fd40,Biryani,180.0
+25,mn4,100004,fd41,Biryani,320.0
+26,mn4,100004,fd42,Biryani,320.0
+27,mn4,100004,fd43,Biryani,180.0
+28,mn4,100004,fd44,Biryani,120.0
+29,mn4,100004,fd45,Biryani,320.0
+30,mn5,100005,fd50,Desserts,320.0
+31,mn5,100005,fd51,Desserts,80.0
+32,mn5,100005,fd52,Desserts,250.0
+33,mn5,100005,fd53,Desserts,320.0
+34,mn5,100005,fd54,Desserts,250.0
+35,mn5,100005,fd55,Desserts,250.0
+36,mn6,100006,fd60,North Indian,250.0
+37,mn6,100006,fd61,North Indian,250.0
+38,mn6,100006,fd62,North Indian,80.0
+39,mn6,100006,fd63,North Indian,250.0
+40,mn6,100006,fd64,North Indian,250.0
+41,mn6,100006,fd65,North Indian,80.0
+42,mn7,100007,fd70,Chinese,120.0
+43,mn7,100007,fd71,Chinese,80.0
+44,mn7,100007,fd72,Chinese,120.0
+45,mn7,100007,fd73,Chinese,250.0
+46,mn7,100007,fd74,Chinese,120.0
+47,mn7,100007,fd75,Chinese,80.0
+48,mn8,100008,fd80,South Indian,180.0
+49,mn8,100008,fd81,South Indian,320.0
+50,mn8,100008,fd82,South Indian,80.0
+51,mn8,100008,fd83,South Indian,80.0
+52,mn8,100008,fd84,South Indian,80.0
+53,mn8,100008,fd85,South Indian,320.0
+54,mn9,100009,fd90,Pizzas,120.0
+55,mn9,100009,fd91,Pizzas,320.0
+56,mn9,100009,fd92,Pizzas,80.0
+57,mn9,100009,fd93,Pizzas,180.0
+58,mn9,100009,fd94,Pizzas,320.0
+59,mn9,100009,fd95,Pizzas,80.0
+60,mn10,100010,fd100,Biryani,80.0
+61,mn10,100010,fd101,Biryani,120.0
+62,mn10,100010,fd102,Biryani,320.0
+63,mn10,100010,fd103,Biryani,250.0
+64,mn10,100010,fd104,Biryani,120.0
+65,mn10,100010,fd105,Biryani,180.0
+66,mn11,100011,fd110,Desserts,180.0
+67,mn11,100011,fd111,Desserts,320.0
+68,mn11,100011,fd112,Desserts,180.0
+69,mn11,100011,fd113,Desserts,250.0
+70,mn11,100011,fd114,Desserts,80.0
+71,mn11,100011,fd115,Desserts,80.0
+72,mn12,100012,fd120,North Indian,250.0
+73,mn12,100012,fd121,North Indian,250.0
+74,mn12,100012,fd122,North Indian,250.0
+75,mn12,100012,fd123,North Indian,250.0
+76,mn12,100012,fd124,North Indian,180.0
+77,mn12,100012,fd125,North Indian,80.0
+78,mn13,100013,fd130,Chinese,120.0
+79,mn13,100013,fd131,Chinese,80.0
+80,mn13,100013,fd132,Chinese,180.0
+81,mn13,100013,fd133,Chinese,180.0
+82,mn13,100013,fd134,Chinese,250.0
+83,mn13,100013,fd135,Chinese,120.0
+84,mn14,100014,fd140,South Indian,320.0
+85,mn14,100014,fd141,South Indian,80.0
+86,mn14,100014,fd142,South Indian,120.0
+87,mn14,100014,fd143,South Indian,320.0
+88,mn14,100014,fd144,South Indian,180.0
+89,mn14,100014,fd145,South Indian,120.0

@@ -1,11 +1,11 @@
-import os
 import json
-import numpy as np
+import os
+
 import pandas as pd
-import streamlit as st
 import snowflake.connector
-from groq import Groq
+import streamlit as st
 from dotenv import load_dotenv
+from groq import Groq
 
 load_dotenv()
 
@@ -73,14 +73,18 @@ Rules:
 
 @st.cache_resource
 def get_connection():
+    # LLM-written SQL runs under a read-only role (snowflake/07_readonly_role.sql): Snowflake
+    # rejects anything but SELECT on MARTS, whatever is_safe() lets through. A statement
+    # timeout stops a runaway query from burning warehouse credits.
     return snowflake.connector.connect(
         account=os.getenv("SNOWFLAKE_ACCOUNT"),
         user=os.getenv("SNOWFLAKE_USER"),
         password=os.getenv("SNOWFLAKE_PASSWORD"),
-        warehouse=os.getenv("SNOWFLAKE_WAREHOUSE"),
-        database=os.getenv("SNOWFLAKE_DATABASE"),
+        warehouse=os.getenv("SNOWFLAKE_WAREHOUSE", "ZOMATO_WH"),
+        database=os.getenv("SNOWFLAKE_DATABASE", "ZOMATO"),
         schema="MARTS",
-        role = "DBT_ROLE"
+        role=os.getenv("SNOWFLAKE_TEXT2SQL_ROLE", "ANALYST_RO_ROLE"),
+        session_parameters={"STATEMENT_TIMEOUT_IN_SECONDS": 60},
     )
 
 def generate_sql(question):

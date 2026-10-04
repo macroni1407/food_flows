@@ -1,8 +1,10 @@
-import os 
 import json
+import os
+
 import snowflake.connector
-from groq import Groq
 from dotenv import load_dotenv
+from groq import Groq
+
 load_dotenv()
 
 MODEL = "openai/gpt-oss-120b"
