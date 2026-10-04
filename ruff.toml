@@ -7,3 +7,7 @@ extend-exclude = ["data", "logs", "airflow/logs", "zomato/target", "zomato/logs"
 # Real errors only: syntax/runtime errors (E4, E7, E9), pyflakes (F: unused imports and
 # variables, undefined names) and import sorting (I).
 select = ["E4", "E7", "E9", "F", "I"]
+
+[lint.isort]
+# ai/agent is this project's package (imported as `agent` by the Streamlit pages and scripts)
+known-first-party = ["agent"]
